@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face ID Online/Offline</title>
+    
+    <!-- Face-API.js Library -->
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f4; padding: 20px; }
+        .container { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; border: none; border-radius: 5px; background: #007bff; color: white; }
+        input { padding: 8px; width: 80%; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        #video { width: 100%; border-radius: 10px; display: none; margin-top: 10px; }
+        #status { font-size: 1.2rem; font-weight: bold; margin-top: 15px; }
+        .online { color: green; }
+        .offline { color: red; }
+        .loading { color: orange; }
+        #form-container { display: none; padding: 10px; border: 1px solid #ddd; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>System Status</h2>
+    <div id="status" class="offline">Status: Offline</div>
+    
+    <button onclick="toggleForm()">Add Photo</button>
+    <button onclick="startOnline()">Online</button>
+
+    <!-- Photo URL Form -->
+    <div id="form-container">
+        <input type="text" id="imgUrlInput" placeholder="Paste Image URL (Direct Link)">
+        <button onclick="savePhoto()">Save URL</button>
+    </div>
+
+    <!-- Video Feed -->
+    <video id="video" autoplay muted></video>
+</div>
+
+<script type="module">
+    // Firebase Imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    // Your Firebase Config (Corrected as per your input)
+    const firebaseConfig = {
+      apiKey: "AIzaSyD_MJAYCk5JZuOn6_YwsBC86gBKxwC_EKY",
+      authDomain: "cosmatic-a7f73.firebaseapp.com",
+      projectId: "cosmatic-a7f73",
+      storageBucket: "cosmatic-a7f73.firebasestorage.app",
+      messagingSenderId: "693000942896",
+      appId: "1:693000942896:web:5208e137c75e62749c44f5"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const video = document.getElementById('video');
+    const statusDiv = document.getElementById('status');
+    const formContainer = document.getElementById('form-container');
+
+    // ১. Face-API মডেল লোড করা
+    async function loadModels() {
+        statusDiv.innerText = "Loading AI Models...";
+        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+        statusDiv.innerText = "Status: Offline";
+    }
+    loadModels();
+
+    // ২. ফরম দেখানো বা লুকানো
+    window.toggleForm = () => {
+        formContainer.style.display = formContainer.style.display === 'block' ? 'none' : 'block';
+    };
+
+    // ৩. ফটো URL ফায়ারবেসে সেভ করা
+    window.savePhoto = async () => {
+        const url = document.getElementById('imgUrlInput').value;
+        if (!url) return alert("Please enter a URL");
+
+        try {
+            // "users" কালেকশনে "profile" ডক হিসেবে সেভ হবে
+            await setDoc(doc(db, "settings", "user_profile"), { photoUrl: url });
+            alert("Photo URL Saved Successfully!");
+            formContainer.style.display = 'none';
+        } catch (e) {
+            console.error(e);
+            alert("Error saving data");
+        }
+    };
+
+    // ৪. অনলাইন ভেরিফিকেশন শুরু (মেইন লজিক)
+    window.startOnline = async () => {
+        try {
+            // ফায়ারবেস থেকে ডাটা আনা
+            const docSnap = await getDoc(doc(db, "settings", "user_profile"));
+            if (!docSnap.exists()) return alert("No photo found! Click 'Add Photo' first.");
+            
+            const savedUrl = docSnap.data().photoUrl;
+            statusDiv.className = "loading";
+            statusDiv.innerText = "Fetching Reference Image...";
+
+            // সেভ করা ইমেজ থেকে ফেস ডাটা বের করা
+            // দ্রষ্টব্য: বাইরের লিঙ্কের ক্ষেত্রে CORS সমস্যা হতে পারে।
+            const refImg = await faceapi.fetchImage(savedUrl);
+            const refDetection = await faceapi.detectSingleFace(refImg, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+
+            if (!refDetection) return alert("Could not detect face in the saved URL photo!");
+
+            // ক্যামেরা চালু করা
+            const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+            video.srcObject = stream;
+            video.style.display = "block";
+            statusDiv.innerText = "Scanning Face...";
+
+            // ফেস ম্যাচিং শুরু
+            const interval = setInterval(async () => {
+                const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+
+                if (detections) {
+                    const distance = faceapi.euclideanDistance(refDetection.descriptor, detections.descriptor);
+                    
+                    if (distance < 0.5) { // ০.৫ এর কম মানে মুখ মিলে গেছে
+                        statusDiv.innerText = "Status: Online";
+                        statusDiv.className = "online";
+                        clearInterval(interval);
+                        // video.style.display = "none"; // চাইলে ক্যামেরা বন্ধ করে দিতে পারেন
+                    } else {
+                        statusDiv.innerText = "Face Not Matching...";
+                    }
+                }
+            }, 1000);
+
+        } catch (err) {
+            console.error(err);
+            alert("Error: " + err.message);
+        }
+    };
+</script>
+
+</body>
+</html>
