@@ -3,60 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Handwriting Scanner to Firebase</title>
+    <title>Question Paper Scanner</title>
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     <style>
-        body { font-family: sans-serif; background-color: #f0f2f5; text-align: center; padding: 15px; }
-        .container { max-width: 450px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        video { width: 100%; border-radius: 10px; border: 2px solid #007bff; }
-        .controls { margin-top: 15px; }
-        button { width: 100%; padding: 12px; margin-bottom: 10px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; }
-        #capture-btn { background-color: #007bff; color: white; }
-        #save-btn { background-color: #28a745; color: white; display: none; }
-        .input-group { text-align: left; margin-bottom: 12px; }
-        .input-group label { display: block; font-size: 14px; font-weight: bold; color: #555; }
-        .input-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        #loading { display: none; color: #ff5722; font-weight: bold; margin: 10px 0; }
-        #debug-box { font-size: 11px; background: #eee; padding: 5px; border-radius: 5px; margin-top: 10px; color: #666; text-align: left; max-height: 60px; overflow: auto; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f4f9; padding: 20px; text-align: center; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        video { width: 100%; border-radius: 10px; border: 3px solid #007bff; margin-bottom: 15px; }
+        .btn { width: 100%; padding: 12px; margin-bottom: 10px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-scan { background: #007bff; color: white; }
+        .btn-save { background: #28a745; color: white; display: none; }
+        #loader { display: none; color: #ff5722; font-weight: bold; margin: 10px; }
+        .question-list { text-align: left; margin-top: 20px; border-top: 2px solid #eee; padding-top: 15px; }
+        .q-item { background: #f9f9f9; padding: 10px; margin-bottom: 8px; border-left: 5px solid #007bff; border-radius: 4px; font-size: 14px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h3>Scan Medicine List</h3>
+    <h2>📄 Question Scanner</h2>
+    <p style="font-size: 12px; color: #666;">প্রশ্নপত্রের ছবি তুলুন, এটি অটোমেটিক সিরিয়াল অনুযায়ী সাজাবে।</p>
     
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas" style="display:none;"></canvas>
 
-    <div class="controls">
-        <button id="capture-btn">📷 Scan Handwriting</button>
-        <div id="loading">Scanning... Please Wait (10-15s)</div>
+    <button class="btn btn-scan" id="scan-btn">📷 Capture & Sort Questions</button>
+    <div id="loader">Processing Paper... Please Wait...</div>
+
+    <div id="result-area" class="question-list">
+        <!-- সাজানো প্রশ্ন এখানে দেখাবে -->
     </div>
 
-    <div id="data-fields">
-        <div class="input-group">
-            <label>Medicine Name:</label>
-            <input type="text" id="prod-name" placeholder="Name will appear here">
-        </div>
-        <div class="input-group">
-            <label>Price:</label>
-            <input type="number" id="prod-price" placeholder="Price">
-        </div>
-        <div class="input-group">
-            <label>Quantity:</label>
-            <input type="number" id="prod-qty" placeholder="Quantity">
-        </div>
-        <button id="save-btn">✅ Confirm & Save to Firebase</button>
-    </div>
-
+    <button class="btn btn-save" id="save-firebase">💾 Save All to Firebase</button>
     <div id="status"></div>
-    <div id="debug-box">Scanner Log: Waiting for scan...</div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+    // Your Firebase Config
     const firebaseConfig = {
         apiKey: "AIzaSyD_MJAYCk5JZuOn6_YwsBC86gBKxwC_EKY",
         authDomain: "cosmatic-a7f73.firebaseapp.com",
@@ -71,87 +56,75 @@
 
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    const debugBox = document.getElementById('debug-box');
+    const resultArea = document.getElementById('result-area');
+    const saveBtn = document.getElementById('save-firebase');
+    let scannedQuestions = [];
 
-    // ১. ক্যামেরা চালু করা
+    // ক্যামেরা চালু
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
         .then(stream => { video.srcObject = stream; })
-        .catch(err => alert("Camera Error: " + err));
+        .catch(err => alert("Camera error: " + err));
 
-    document.getElementById('capture-btn').addEventListener('click', async () => {
+    // স্ক্যান বাটন ক্লিক
+    document.getElementById('scan-btn').addEventListener('click', async () => {
         const ctx = canvas.getContext('2d');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        
-        // ছবি তোলা
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // ইমেজ প্রসেসিং (সাদা-কালো করা হাতের লেখা বোঝার জন্য)
-        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        let data = imageData.data;
-        for (let i = 0; i < data.length; i += 4) {
-            let avg = (data[i] + data[i+1] + data[i+2]) / 3;
-            let val = avg > 120 ? 255 : 0; // Thresholding for high contrast
-            data[i] = data[i+1] = data[i+2] = val;
-        }
-        ctx.putImageData(imageData, 0, 0);
 
-        document.getElementById('loading').style.display = 'block';
-        debugBox.innerText = "Analyzing Handwriting...";
+        document.getElementById('loader').style.display = 'block';
+        resultArea.innerHTML = "";
 
         try {
-            // Tesseract OCR রান করা
-            const result = await Tesseract.recognize(canvas.toDataURL(), 'eng');
-            const text = result.data.text;
-            debugBox.innerText = "Raw Text: " + text;
-            processExtractedText(text);
+            // OCR প্রসেসিং
+            const result = await Tesseract.recognize(canvas.toDataURL(), 'eng+ben'); // English & Bengali support
+            const fullText = result.data.text;
+            
+            // প্রশ্ন আলাদা করার লজিক (Regex)
+            // এটি 1. বা 2) বা Q1: এই ধরণের সিরিয়াল নম্বর খুঁজবে
+            const questionPattern = /(\d+[\.\)\:]\s+[^0-9]+)/g;
+            const matches = fullText.match(questionPattern);
+
+            if (matches && matches.length > 0) {
+                scannedQuestions = matches.map(q => q.trim());
+                displayQuestions(scannedQuestions);
+                saveBtn.style.display = 'block';
+            } else {
+                resultArea.innerHTML = "<p style='color:red;'>No serial numbers found. Try to take a clearer picture.</p>";
+            }
         } catch (e) {
-            debugBox.innerText = "OCR Error: " + e.message;
+            console.error(e);
+            alert("Error scanning text.");
         } finally {
-            document.getElementById('loading').style.display = 'none';
+            document.getElementById('loader').style.display = 'none';
         }
     });
 
-    function processExtractedText(text) {
-        // ছোট হাতের অক্ষরে কনভার্ট করা এবং লাইন বাই লাইন ভাগ করা
-        const words = text.toLowerCase().split(/\s+/);
-        
-        let name = "", price = "", qty = "";
-
-        // আপনার ছবির ফরম্যাট অনুযায়ী লজিক: 
-        // Clavam 55 7 এইরকম থাকলে
-        for(let i=0; i<words.length; i++) {
-            if(words[i].includes("name")) continue;
-            if(words[i].includes("price")) continue;
-            if(words[i].includes("qty")) continue;
-
-            if(!name && isNaN(words[i])) name = words[i];
-            else if(!price && !isNaN(words[i])) price = words[i];
-            else if(!qty && !isNaN(words[i])) qty = words[i];
-        }
-
-        document.getElementById('prod-name').value = name.toUpperCase();
-        document.getElementById('prod-price').value = price;
-        document.getElementById('prod-qty').value = qty;
-
-        if(name || price) {
-            document.getElementById('save-btn').style.display = 'block';
-        }
+    // স্ক্রিনে প্রশ্নগুলো দেখানো
+    function displayQuestions(questions) {
+        questions.forEach((q, index) => {
+            const div = document.createElement('div');
+            div.className = 'q-item';
+            div.innerText = q;
+            resultArea.appendChild(div);
+        });
     }
 
-    document.getElementById('save-btn').addEventListener('click', async () => {
-        const name = document.getElementById('prod-name').value;
-        const price = document.getElementById('prod-price').value;
-        const qty = document.getElementById('prod-qty').value;
+    // Firebase-এ সেভ করা
+    saveBtn.addEventListener('click', async () => {
+        if (scannedQuestions.length === 0) return;
 
         try {
-            await addDoc(collection(db, "medicines"), {
-                name, price: Number(price), quantity: Number(qty), date: serverTimestamp()
+            document.getElementById('status').innerText = "Saving to Firebase...";
+            await addDoc(collection(db, "question_papers"), {
+                questions: scannedQuestions,
+                total: scannedQuestions.length,
+                createdAt: serverTimestamp()
             });
-            alert("Saved Successfully!");
+            alert("All questions saved successfully!");
             location.reload();
         } catch (e) {
-            alert("Save Error: " + e.message);
+            alert("Firebase Error: " + e.message);
         }
     });
 </script>
