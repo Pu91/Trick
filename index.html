@@ -3,132 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner to Firebase</title>
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <title>Text Scanner (OCR) to Firebase</title>
+    <!-- Tesseract.js for Text Scanning -->
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; padding: 20px; }
-        #reader { width: 100%; max-width: 400px; margin: 20px auto; border: 2px solid #333; border-radius: 10px; overflow: hidden; }
-        button { padding: 10px 20px; font-size: 18px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 5px; }
-        #status { margin-top: 15px; font-weight: bold; color: blue; }
-        .data-table { margin: 20px auto; width: 90%; border-collapse: collapse; }
-        .data-table th, .data-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        .data-table th { background-color: #333; color: white; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; text-align: center; padding: 20px; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        video { width: 100%; border-radius: 10px; background: #000; margin-bottom: 10px; }
+        canvas { display: none; }
+        .input-group { text-align: left; margin-bottom: 15px; }
+        .input-group label { font-weight: bold; display: block; margin-bottom: 5px; }
+        .input-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 17px; cursor: pointer; margin-bottom: 10px; }
+        .btn-capture { background-color: #007bff; color: white; }
+        .btn-save { background-color: #28a745; color: white; display: none; }
+        #status { margin-top: 10px; font-weight: bold; color: #555; }
+        .loading-spinner { display: none; color: blue; font-weight: bold; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-    <h2>Product Scanner</h2>
-    <button id="start-scan">Scan Product</button>
-    <div id="reader"></div>
+<div class="container">
+    <h3>Scan Printed Text</h3>
+    
+    <!-- Camera Preview -->
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+    
+    <button class="btn-capture" id="capture-btn">Capture & Scan Text</button>
+    <div id="loading" class="loading-spinner">Processing Text... Please wait...</div>
+
+    <div id="data-fields">
+        <div class="input-group">
+            <label>Product Name:</label>
+            <input type="text" id="prod-name" placeholder="Scanning name...">
+        </div>
+        <div class="input-group">
+            <label>Price:</label>
+            <input type="number" id="prod-price" placeholder="Scanning price...">
+        </div>
+        <div class="input-group">
+            <label>Quantity:</label>
+            <input type="number" id="prod-qty" placeholder="Scanning quantity...">
+        </div>
+        <button class="btn-save" id="save-btn">Save to Firebase</button>
+    </div>
+
     <div id="status"></div>
+</div>
 
-    <h3>Recently Saved:</h3>
-    <table class="data-table" id="data-table">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Price</th>
-                <th>Qty</th>
-            </tr>
-        </thead>
-        <tbody id="table-body"></tbody>
-    </table>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, serverTimestamp } 
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, serverTimestamp } 
-        from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    // Your Firebase Config
+    const firebaseConfig = {
+        apiKey: "AIzaSyD_MJAYCk5JZuOn6_YwsBC86gBKxwC_EKY",
+        authDomain: "cosmatic-a7f73.firebaseapp.com",
+        databaseURL: "https://cosmatic-a7f73-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "cosmatic-a7f73",
+        storageBucket: "cosmatic-a7f73.firebasestorage.app",
+        messagingSenderId: "693000942896",
+        appId: "1:693000942896:web:5208e137c75e62749c44f5",
+        measurementId: "G-L7FNN9G0NY"
+    };
 
-        // Firebase Configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyD_MJAYCk5JZuOn6_YwsBC86gBKxwC_EKY",
-            authDomain: "cosmatic-a7f73.firebaseapp.com",
-            databaseURL: "https://cosmatic-a7f73-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "cosmatic-a7f73",
-            storageBucket: "cosmatic-a7f73.firebasestorage.app",
-            messagingSenderId: "693000942896",
-            appId: "1:693000942896:web:5208e137c75e62749c44f5",
-            measurementId: "G-L7FNN9G0NY"
-        };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const captureBtn = document.getElementById('capture-btn');
+    const saveBtn = document.getElementById('save-btn');
+    const loading = document.getElementById('loading');
+    const statusDiv = document.getElementById('status');
+
+    // ১. ক্যামেরা চালু করা
+    async function startCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            video.srcObject = stream;
+        } catch (err) {
+            alert("Camera access denied!");
+        }
+    }
+    startCamera();
+
+    // ২. টেক্সট স্ক্যান করা (OCR)
+    captureBtn.addEventListener('click', async () => {
+        const context = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        loading.style.display = 'block';
+        statusDiv.innerText = "Analyzing image...";
+
+        // Tesseract দিয়ে ছবি থেকে টেক্সট বের করা
+        const { data: { text } } = await Tesseract.recognize(canvas, 'eng');
         
-        let html5QrCode;
+        loading.style.display = 'none';
+        console.log("Full Scanned Text:", text); // ডেবাগিং এর জন্য
 
-        document.getElementById('start-scan').addEventListener('click', () => {
-            html5QrCode = new Html5Qrcode("reader");
-            const statusDiv = document.getElementById('status');
-            
-            statusDiv.innerText = "Camera starting...";
+        processText(text);
+    });
 
-            html5QrCode.start(
-                { facingMode: "environment" }, 
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                (decodedText) => {
-                    // স্ক্যান সাকসেস হলে এখানে আসবে
-                    statusDiv.innerText = "Scanned: " + decodedText;
-                    processScannedData(decodedText);
-                    html5QrCode.stop(); // স্ক্যান হওয়ার পর ক্যামেরা বন্ধ হবে
-                },
-                (errorMessage) => {
-                    // স্ক্যানিং চলাকালীন এরর (ignore)
-                }
-            ).catch(err => {
-                statusDiv.innerText = "Camera Error: " + err;
+    // ৩. টেক্সট থেকে ডাটা ফিল্টার করা
+    function processText(rawText) {
+        // কাগজের লেখা যদি এমন হয়: "Name: Paracetamol Price: 55 Qty: 7"
+        const text = rawText.toLowerCase();
+
+        // সহজ Regex ব্যবহার করে নাম, দাম ও সংখ্যা বের করা
+        const nameMatch = text.match(/name[:\s]+([a-z]+)/);
+        const priceMatch = text.match(/price[:\s]+(\d+)/);
+        const qtyMatch = text.match(/(?:qty|quantity)[:\s]+(\d+)/);
+
+        document.getElementById('prod-name').value = nameMatch ? nameMatch[1].toUpperCase() : "";
+        document.getElementById('prod-price').value = priceMatch ? priceMatch[1] : "";
+        document.getElementById('prod-qty').value = qtyMatch ? qtyMatch[1] : "";
+
+        if(nameMatch || priceMatch) {
+            saveBtn.style.display = 'block';
+            statusDiv.innerText = "Scan Complete! Verify and Save.";
+            statusDiv.style.color = "blue";
+        } else {
+            statusDiv.innerText = "Could not detect clear text. Try again!";
+            statusDiv.style.color = "red";
+        }
+    }
+
+    // ৪. Firebase-এ সেভ করা
+    saveBtn.addEventListener('click', async () => {
+        const name = document.getElementById('prod-name').value;
+        const price = document.getElementById('prod-price').value;
+        const qty = document.getElementById('prod-qty').value;
+
+        if (!name || !price || !qty) {
+            alert("Please fill all fields!");
+            return;
+        }
+
+        try {
+            statusDiv.innerText = "Saving...";
+            await addDoc(collection(db, "scanned_items"), {
+                name: name,
+                price: parseFloat(price),
+                quantity: parseInt(qty),
+                timestamp: serverTimestamp()
             });
-        });
 
-        async function processScannedData(data) {
-            const statusDiv = document.getElementById('status');
-            
-            // ডাটা ফরম্যাট আশা করছি: Name,Price,Quantity
-            // উদাহরণ: Lux,50,2
-            const parts = data.split(',');
-
-            if (parts.length >= 3) {
-                const name = parts[0].trim();
-                const price = parts[1].trim();
-                const qty = parts[2].trim();
-
-                try {
-                    statusDiv.innerText = "Saving to Firebase...";
-                    
-                    // Firebase Firestore-এ সেভ করা
-                    await addDoc(collection(db, "scanned_products"), {
-                        productName: name,
-                        price: parseFloat(price),
-                        quantity: parseInt(qty),
-                        timestamp: serverTimestamp()
-                    });
-
-                    statusDiv.style.color = "green";
-                    statusDiv.innerText = "Successfully Saved: " + name;
-
-                    // টেবিলে ডাটা দেখানো
-                    addToTable(name, price, qty);
-
-                } catch (e) {
-                    console.error("Error adding document: ", e);
-                    statusDiv.style.color = "red";
-                    statusDiv.innerText = "Firebase Error!";
-                }
-            } else {
-                statusDiv.style.color = "red";
-                statusDiv.innerText = "Invalid QR Format! Use: Name,Price,Qty";
-            }
+            statusDiv.innerText = "Successfully Saved to Firebase!";
+            statusDiv.style.color = "green";
+            saveBtn.style.display = 'none';
+        } catch (e) {
+            statusDiv.innerText = "Error: " + e.message;
         }
+    });
+</script>
 
-        function addToTable(name, price, qty) {
-            const tbody = document.getElementById('table-body');
-            const row = `<tr>
-                <td>${name}</td>
-                <td>${price}</td>
-                <td>${qty}</td>
-            </tr>`;
-            tbody.innerHTML = row + tbody.innerHTML;
-        }
-
-    </script>
 </body>
 </html>
