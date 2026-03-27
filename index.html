@@ -1,1 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Barcode Generator & Printer</title>
+    <!-- Barcode Library -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <style>
+        /* UI Styling */
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .no-print { 
+            max-width: 500px; margin: auto; background: white; 
+            padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center; margin-bottom: 30px;
+        }
+        input { width: 80%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
+        button { 
+            padding: 12px 25px; font-size: 16px; border: none; border-radius: 8px; 
+            cursor: pointer; font-weight: bold; margin: 5px;
+        }
+        .btn-gen { background: #007bff; color: white; }
+        .btn-print { background: #28a745; color: white; }
 
+        /* Barcode Grid Styling (For Print Preview) */
+        #barcode-container { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); /* এক লাইনে ৩টি বারকোড */
+            gap: 15px; 
+            justify-items: center;
+        }
+        .barcode-item { 
+            border: 1px solid #eee; padding: 10px; text-align: center; 
+            background: white; border-radius: 5px;
+        }
+        svg { max-width: 100%; height: auto; }
+
+        /* Print Media Query - প্রিন্ট করার সময় শুধু বারকোড দেখাবে */
+        @media print {
+            .no-print { display: none; }
+            body { background: white; padding: 0; }
+            #barcode-container { 
+                display: grid; 
+                grid-template-columns: repeat(3, 1fr); 
+                gap: 10px;
+            }
+            .barcode-item { border: 1px solid #ddd; page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="no-print">
+    <h2>🏷️ Barcode Generator</h2>
+    <input type="text" id="barcode-value" placeholder="Enter Product Name/ID (e.g. NAPA-101)">
+    <input type="number" id="barcode-count" placeholder="How many copies? (e.g. 12)" min="1" value="1">
+    
+    <br>
+    <button class="btn-gen" onclick="generateBarcodes()">Generate Barcodes</button>
+    <button class="btn-print" onclick="window.print()">Print Barcodes</button>
+</div>
+
+<!-- বারকোডগুলো এখানে সাজানো থাকবে -->
+<div id="barcode-container"></div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    // Firebase Config (Your Config)
+    const firebaseConfig = {
+        apiKey: "AIzaSyD_MJAYCk5JZuOn6_YwsBC86gBKxwC_EKY",
+        authDomain: "cosmatic-a7f73.firebaseapp.com",
+        projectId: "cosmatic-a7f73",
+        storageBucket: "cosmatic-a7f73.firebasestorage.app",
+        messagingSenderId: "693000942896",
+        appId: "1:693000942896:web:5208e137c75e62749c44f5"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // বারকোড জেনারেশন ফাংশন
+    window.generateBarcodes = function() {
+        const val = document.getElementById('barcode-value').value;
+        const count = document.getElementById('barcode-count').value;
+        const container = document.getElementById('barcode-container');
+
+        if (!val) { alert("Please enter a value!"); return; }
+
+        container.innerHTML = ""; // আগেরগুলো মুছে ফেলা
+
+        for (let i = 0; i < count; i++) {
+            // বারকোড আইটেম তৈরি
+            const div = document.createElement('div');
+            div.className = 'barcode-item';
+            
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.id = "barcode" + i;
+            div.appendChild(svg);
+            container.appendChild(div);
+
+            // JsBarcode লাইব্রেরি কল করা
+            JsBarcode("#barcode" + i, val, {
+                format: "CODE128",
+                lineColor: "#000",
+                width: 2,
+                height: 50,
+                displayValue: true // বারকোডের নিচে নাম দেখাবে
+            });
+        }
+
+        // ঐচ্ছিক: Firebase-এ রেকর্ড রাখা যে বারকোড তৈরি হয়েছে
+        saveToFirebase(val, count);
+    }
+
+    async function saveToFirebase(val, count) {
+        try {
+            await addDoc(collection(db, "generated_barcodes"), {
+                text: val,
+                copies: count,
+                timestamp: serverTimestamp()
+            });
+        } catch (e) { console.error("Firebase Log Error: ", e); }
+    }
+</script>
+
+</body>
+</html>
