@@ -3,127 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professional Barcode Generator & Printer</title>
-    <!-- Barcode Library -->
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <title>India OTP Login</title>
     <style>
-        /* UI Styling */
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
-        .no-print { 
-            max-width: 500px; margin: auto; background: white; 
-            padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            text-align: center; margin-bottom: 30px;
-        }
-        input { width: 80%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
-        button { 
-            padding: 12px 25px; font-size: 16px; border: none; border-radius: 8px; 
-            cursor: pointer; font-weight: bold; margin: 5px;
-        }
-        .btn-gen { background: #007bff; color: white; }
-        .btn-print { background: #28a745; color: white; }
-
-        /* Barcode Grid Styling (For Print Preview) */
-        #barcode-container { 
-            display: grid; 
-            grid-template-columns: repeat(3, 1fr); /* এক লাইনে ৩টি বারকোড */
-            gap: 15px; 
-            justify-items: center;
-        }
-        .barcode-item { 
-            border: 1px solid #eee; padding: 10px; text-align: center; 
-            background: white; border-radius: 5px;
-        }
-        svg { max-width: 100%; height: auto; }
-
-        /* Print Media Query - প্রিন্ট করার সময় শুধু বারকোড দেখাবে */
-        @media print {
-            .no-print { display: none; }
-            body { background: white; padding: 0; }
-            #barcode-container { 
-                display: grid; 
-                grid-template-columns: repeat(3, 1fr); 
-                gap: 10px;
-            }
-            .barcode-item { border: 1px solid #ddd; page-break-inside: avoid; }
-        }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #eef2f3; }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); width: 320px; text-align: center; }
+        h2 { color: #333; }
+        .input-group { display: flex; align-items: center; border: 1px solid #ccc; border-radius: 5px; margin: 15px 0; padding: 5px; }
+        .prefix { padding: 0 10px; font-weight: bold; color: #555; border-right: 1px solid #ccc; }
+        input { border: none; outline: none; padding: 10px; width: 100%; font-size: 16px; }
+        button { width: 100%; padding: 12px; background: #ff9933; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #138808; } /* ইন্ডিয়া পতাকার রং থিম */
+        #otp-section { display: none; margin-top: 15px; }
+        .msg { margin-top: 10px; font-size: 13px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="no-print">
-    <h2>🏷️ Barcode Generator</h2>
-    <input type="text" id="barcode-value" placeholder="Enter Product Name/ID (e.g. NAPA-101)">
-    <input type="number" id="barcode-count" placeholder="How many copies? (e.g. 12)" min="1" value="1">
-    
-    <br>
-    <button class="btn-gen" onclick="generateBarcodes()">Generate Barcodes</button>
-    <button class="btn-print" onclick="window.print()">Print Barcodes</button>
-</div>
+    <div class="container">
+        <h2>India Login</h2>
+        
+        <!-- ফোন নাম্বার সেকশন -->
+        <div id="phone-section">
+            <p>Enter your 10-digit mobile number</p>
+            <div class="input-group">
+                <span class="prefix">+91</span>
+                <input type="number" id="phone-number" placeholder="9876543210">
+            </div>
+            <div id="recaptcha-container"></div>
+            <button id="send-otp-btn">Send OTP</button>
+        </div>
 
-<!-- বারকোডগুলো এখানে সাজানো থাকবে -->
-<div id="barcode-container"></div>
+        <!-- OTP ভেরিফাই সেকশন -->
+        <div id="otp-section">
+            <input type="text" id="otp-input" placeholder="Enter 6-digit OTP">
+            <button id="verify-otp-btn" style="background: #138808;">Verify & Login</button>
+        </div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        <p id="message" class="msg"></p>
+    </div>
 
-    // Firebase Config (Your Config)
-    const firebaseConfig = {
-        apiKey: "AIzaSyD_MJAYCk5JZuOn6_YwsBC86gBKxwC_EKY",
-        authDomain: "cosmatic-a7f73.firebaseapp.com",
-        projectId: "cosmatic-a7f73",
-        storageBucket: "cosmatic-a7f73.firebasestorage.app",
-        messagingSenderId: "693000942896",
-        appId: "1:693000942896:web:5208e137c75e62749c44f5"
-    };
+    <!-- Firebase Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+        // আপনার Firebase কনফিগারেশন
+        const firebaseConfig = {
+            apiKey: "AIzaSyAFUAATQoR0Kidzm9665tILTMNArFgKO9k",
+            authDomain: "school-websit-9c152.firebaseapp.com",
+            databaseURL: "https://school-websit-9c152-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "school-websit-9c152",
+            storageBucket: "school-websit-9c152.firebasestorage.app",
+            messagingSenderId: "591107596339",
+            appId: "1:591107596339:web:7ea49a657abd08f1f20346",
+            measurementId: "G-K7R4D9Q2L4"
+        };
 
-    // বারকোড জেনারেশন ফাংশন
-    window.generateBarcodes = function() {
-        const val = document.getElementById('barcode-value').value;
-        const count = document.getElementById('barcode-count').value;
-        const container = document.getElementById('barcode-container');
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
 
-        if (!val) { alert("Please enter a value!"); return; }
+        const message = document.getElementById("message");
 
-        container.innerHTML = ""; // আগেরগুলো মুছে ফেলা
+        // reCAPTCHA সেটিংস
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            'size': 'invisible'
+        });
 
-        for (let i = 0; i < count; i++) {
-            // বারকোড আইটেম তৈরি
-            const div = document.createElement('div');
-            div.className = 'barcode-item';
+        // OTP পাঠানোর বাটন ক্লিক করলে
+        document.getElementById("send-otp-btn").onclick = function() {
+            let number = document.getElementById("phone-number").value;
             
-            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-            svg.id = "barcode" + i;
-            div.appendChild(svg);
-            container.appendChild(div);
+            if (number.length !== 10) {
+                showMsg("দয়া করে সঠিক ১০ ডিজিট নাম্বার দিন!", "red");
+                return;
+            }
 
-            // JsBarcode লাইব্রেরি কল করা
-            JsBarcode("#barcode" + i, val, {
-                format: "CODE128",
-                lineColor: "#000",
-                width: 2,
-                height: 50,
-                displayValue: true // বারকোডের নিচে নাম দেখাবে
+            // ইন্ডিয়া কান্ট্রি কোড (+91) যোগ করা হচ্ছে
+            const fullPhoneNumber = "+91" + number;
+            const appVerifier = window.recaptchaVerifier;
+
+            signInWithPhoneNumber(auth, fullPhoneNumber, appVerifier)
+                .then((confirmationResult) => {
+                    window.confirmationResult = confirmationResult;
+                    document.getElementById("phone-section").style.display = "none";
+                    document.getElementById("otp-section").style.display = "block";
+                    showMsg("OTP পাঠানো হয়েছে +91 " + number + " নাম্বারে", "green");
+                }).catch((error) => {
+                    console.error(error);
+                    showMsg("ভুল হয়েছে: " + error.message, "red");
+                });
+        };
+
+        // OTP ভেরিফাই করা
+        document.getElementById("verify-otp-btn").onclick = function() {
+            const code = document.getElementById("otp-input").value;
+
+            window.confirmationResult.confirm(code).then((result) => {
+                showMsg("লগিন সফল হয়েছে!", "green");
+                alert("Login Successful! UID: " + result.user.uid);
+            }).catch((error) => {
+                showMsg("ভুল OTP কোড!", "red");
             });
+        };
+
+        function showMsg(text, color) {
+            message.innerText = text;
+            message.style.color = color;
         }
-
-        // ঐচ্ছিক: Firebase-এ রেকর্ড রাখা যে বারকোড তৈরি হয়েছে
-        saveToFirebase(val, count);
-    }
-
-    async function saveToFirebase(val, count) {
-        try {
-            await addDoc(collection(db, "generated_barcodes"), {
-                text: val,
-                copies: count,
-                timestamp: serverTimestamp()
-            });
-        } catch (e) { console.error("Firebase Log Error: ", e); }
-    }
-</script>
-
+    </script>
 </body>
 </html>
