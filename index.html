@@ -3,46 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>India OTP Login</title>
+    <title>India OTP Login - Firebase</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #eef2f3; }
-        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); width: 320px; text-align: center; }
-        h2 { color: #333; }
-        .input-group { display: flex; align-items: center; border: 1px solid #ccc; border-radius: 5px; margin: 15px 0; padding: 5px; }
-        .prefix { padding: 0 10px; font-weight: bold; color: #555; border-right: 1px solid #ccc; }
-        input { border: none; outline: none; padding: 10px; width: 100%; font-size: 16px; }
-        button { width: 100%; padding: 12px; background: #ff9933; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #138808; } /* ইন্ডিয়া পতাকার রং থিম */
-        #otp-section { display: none; margin-top: 15px; }
-        .msg { margin-top: 10px; font-size: 13px; font-weight: bold; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .container { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        h2 { color: #333; margin-bottom: 20px; }
+        
+        .phone-input-wrapper { display: flex; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 15px; overflow: hidden; }
+        .country-code { background: #eee; padding: 12px; border-right: 1px solid #ccc; font-weight: bold; color: #555; }
+        input[type="text"], input[type="number"] { width: 100%; padding: 12px; border: none; outline: none; font-size: 16px; }
+        
+        button { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        #send-otp-btn { background: #ff9933; color: white; } /* India Orange */
+        #verify-otp-btn { background: #138808; color: white; } /* India Green */
+        button:hover { opacity: 0.9; }
+
+        #otp-section { display: none; margin-top: 20px; }
+        #recaptcha-container { margin: 15px 0; display: flex; justify-content: center; }
+        #status-msg { margin-top: 15px; font-size: 14px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>India Login</h2>
+        <h2>India Phone Login</h2>
         
-        <!-- ফোন নাম্বার সেকশন -->
+        <!-- স্টেপ ১: ফোন নাম্বার এন্ট্রি -->
         <div id="phone-section">
-            <p>Enter your 10-digit mobile number</p>
-            <div class="input-group">
-                <span class="prefix">+91</span>
+            <p style="margin-bottom: 10px; color: #666;">Enter your 10-digit mobile number</p>
+            <div class="phone-input-wrapper">
+                <span class="country-code">+91</span>
                 <input type="number" id="phone-number" placeholder="9876543210">
             </div>
+            
+            <!-- reCAPTCHA Container -->
             <div id="recaptcha-container"></div>
+            
             <button id="send-otp-btn">Send OTP</button>
         </div>
 
-        <!-- OTP ভেরিফাই সেকশন -->
+        <!-- স্টেপ ২: OTP ভেরিফিকেশন -->
         <div id="otp-section">
-            <input type="text" id="otp-input" placeholder="Enter 6-digit OTP">
-            <button id="verify-otp-btn" style="background: #138808;">Verify & Login</button>
+            <p style="margin-bottom: 10px; color: #666;">Enter the 6-digit OTP sent to your phone</p>
+            <input type="text" id="otp-input" placeholder="123456" maxlength="6">
+            <button id="verify-otp-btn">Verify & Login</button>
         </div>
 
-        <p id="message" class="msg"></p>
+        <p id="status-msg"></p>
     </div>
 
-    <!-- Firebase Script -->
+    <!-- Firebase SDK (Version 10+) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -59,27 +70,36 @@
             measurementId: "G-K7R4D9Q2L4"
         };
 
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
 
-        const message = document.getElementById("message");
+        const statusMsg = document.getElementById("status-msg");
 
-        // reCAPTCHA সেটিংস
-        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            'size': 'invisible'
-        });
+        // ১. reCAPTCHA সেটআপ (এটি 'normal' রাখা হয়েছে যাতে আপনি দেখতে পারেন)
+        function initRecaptcha() {
+            window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                'size': 'normal', // বক্সে টিক দেওয়ার অপশন আসবে
+                'callback': (response) => {
+                    console.log("reCAPTCHA solved.");
+                },
+                'expired-callback': () => {
+                    alert("reCAPTCHA expired. Please solve it again.");
+                }
+            });
+        }
+        initRecaptcha();
 
-        // OTP পাঠানোর বাটন ক্লিক করলে
+        // ২. OTP পাঠানোর ফাংশন
         document.getElementById("send-otp-btn").onclick = function() {
-            let number = document.getElementById("phone-number").value;
+            const phone = document.getElementById("phone-number").value;
             
-            if (number.length !== 10) {
-                showMsg("দয়া করে সঠিক ১০ ডিজিট নাম্বার দিন!", "red");
+            if (phone.length !== 10) {
+                updateMsg("Please enter a valid 10-digit number!", "red");
                 return;
             }
 
-            // ইন্ডিয়া কান্ট্রি কোড (+91) যোগ করা হচ্ছে
-            const fullPhoneNumber = "+91" + number;
+            const fullPhoneNumber = "+91" + phone;
             const appVerifier = window.recaptchaVerifier;
 
             signInWithPhoneNumber(auth, fullPhoneNumber, appVerifier)
@@ -87,28 +107,32 @@
                     window.confirmationResult = confirmationResult;
                     document.getElementById("phone-section").style.display = "none";
                     document.getElementById("otp-section").style.display = "block";
-                    showMsg("OTP পাঠানো হয়েছে +91 " + number + " নাম্বারে", "green");
+                    updateMsg("OTP sent to +91 " + phone, "green");
                 }).catch((error) => {
                     console.error(error);
-                    showMsg("ভুল হয়েছে: " + error.message, "red");
+                    updateMsg("Error: " + error.message, "red");
+                    // ভুল হলে ক্যাপচা রিসেট করতে হতে পারে
+                    location.reload(); 
                 });
         };
 
-        // OTP ভেরিফাই করা
+        // ৩. OTP ভেরিফাই করার ফাংশন
         document.getElementById("verify-otp-btn").onclick = function() {
             const code = document.getElementById("otp-input").value;
 
             window.confirmationResult.confirm(code).then((result) => {
-                showMsg("লগিন সফল হয়েছে!", "green");
-                alert("Login Successful! UID: " + result.user.uid);
+                const user = result.user;
+                updateMsg("Verification Successful! User ID: " + user.uid, "green");
+                alert("Welcome! Login Successful.");
+                // সফল হলে এখানে অন্য পেজে রিডাইরেক্ট করতে পারেন
             }).catch((error) => {
-                showMsg("ভুল OTP কোড!", "red");
+                updateMsg("Invalid OTP. Try again.", "red");
             });
         };
 
-        function showMsg(text, color) {
-            message.innerText = text;
-            message.style.color = color;
+        function updateMsg(text, color) {
+            statusMsg.innerText = text;
+            statusMsg.style.color = color;
         }
     </script>
 </body>
