@@ -3,62 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>India OTP Login - Firebase</title>
+    <title>Ola Uber Clone - Email Login</title>
+    
+    <!-- Leaflet CSS (Map) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        .container { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
-        h2 { color: #333; margin-bottom: 20px; }
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; background: #f4f4f4; }
         
-        .phone-input-wrapper { display: flex; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 15px; overflow: hidden; }
-        .country-code { background: #eee; padding: 12px; border-right: 1px solid #ccc; font-weight: bold; color: #555; }
-        input[type="text"], input[type="number"] { width: 100%; padding: 12px; border: none; outline: none; font-size: 16px; }
-        
-        button { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
-        #send-otp-btn { background: #ff9933; color: white; } /* India Orange */
-        #verify-otp-btn { background: #138808; color: white; } /* India Green */
-        button:hover { opacity: 0.9; }
+        /* Map UI */
+        #map { height: 45vh; width: 100%; display: none; }
 
-        #otp-section { display: none; margin-top: 20px; }
-        #recaptcha-container { margin: 15px 0; display: flex; justify-content: center; }
-        #status-msg { margin-top: 15px; font-size: 14px; font-weight: bold; }
+        /* Container UI */
+        .container { padding: 25px; max-width: 450px; margin: auto; background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-top: 20px; }
+        
+        h2 { text-align: center; color: #333; margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+        
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 10px; transition: 0.3s; }
+        
+        .btn-primary { background: #ffc107; color: black; } /* Ola/Uber Yellow */
+        .btn-primary:hover { background: #e0a800; }
+        .btn-secondary { background: #f8f9fa; border: 1px solid #ccc; font-size: 14px; }
+        .btn-ride { background: #000; color: #fff; margin-top: 20px; }
+        .btn-logout { background: #ff4d4d; color: white; margin-top: 10px; font-size: 12px; width: auto; padding: 5px 15px; float: right; }
+
+        .hidden { display: none; }
+        #status-box { background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px; text-align: center; color: #0d47a1; font-weight: bold; }
+        
+        .toggle-link { text-align: center; margin-top: 15px; font-size: 14px; color: #007bff; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h2>India Phone Login</h2>
+    <!-- Map View -->
+    <div id="map"></div>
+
+    <div class="container" id="auth-container">
+        <h2 id="auth-title">Login to Uber</h2>
         
-        <!-- স্টেপ ১: ফোন নাম্বার এন্ট্রি -->
-        <div id="phone-section">
-            <p style="margin-bottom: 10px; color: #666;">Enter your 10-digit mobile number</p>
-            <div class="phone-input-wrapper">
-                <span class="country-code">+91</span>
-                <input type="number" id="phone-number" placeholder="9876543210">
-            </div>
-            
-            <!-- reCAPTCHA Container -->
-            <div id="recaptcha-container"></div>
-            
-            <button id="send-otp-btn">Send OTP</button>
-        </div>
-
-        <!-- স্টেপ ২: OTP ভেরিফিকেশন -->
-        <div id="otp-section">
-            <p style="margin-bottom: 10px; color: #666;">Enter the 6-digit OTP sent to your phone</p>
-            <input type="text" id="otp-input" placeholder="123456" maxlength="6">
-            <button id="verify-otp-btn">Verify & Login</button>
-        </div>
-
-        <p id="status-msg"></p>
+        <input type="email" id="email" placeholder="Email Address">
+        <input type="password" id="password" placeholder="Password (min 6 chars)">
+        
+        <button class="btn-primary" id="btn-login">Login</button>
+        <button class="btn-secondary hidden" id="btn-signup">Create Account</button>
+        
+        <p class="toggle-link" id="toggle-auth">Don't have an account? Sign Up</p>
     </div>
 
-    <!-- Firebase SDK (Version 10+) -->
+    <!-- Main App Section -->
+    <div class="container hidden" id="app-section">
+        <button class="btn-logout" id="btn-logout">Logout</button>
+        <h3 id="user-display">Welcome Rider!</h3>
+        <p style="font-size: 14px; color: #666;">Confirm your location on the map and request a ride.</p>
+        
+        <button class="btn-ride" id="btn-request-ride">Request Ride Now</button>
+        
+        <div id="status-box" class="hidden">
+            <span id="ride-status">Searching for nearby drivers...</span>
+        </div>
+
+        <!-- Simulation Button -->
+        <button id="driver-sim" class="btn-secondary hidden" style="margin-top:20px; background: #d4edda;">Simulate: Driver Found</button>
+    </div>
+
+    <!-- Firebase Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getDatabase, ref, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // আপনার Firebase কনফিগারেশন
+        // Firebase Configuration (Using your provided config)
         const firebaseConfig = {
             apiKey: "AIzaSyAFUAATQoR0Kidzm9665tILTMNArFgKO9k",
             authDomain: "school-websit-9c152.firebaseapp.com",
@@ -70,70 +86,115 @@
             measurementId: "G-K7R4D9Q2L4"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        const db = getDatabase(app);
 
-        const statusMsg = document.getElementById("status-msg");
+        let map, userMarker, userLat, userLng;
+        let currentRideId = null;
 
-        // ১. reCAPTCHA সেটআপ (এটি 'normal' রাখা হয়েছে যাতে আপনি দেখতে পারেন)
-        function initRecaptcha() {
-            window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-                'size': 'normal', // বক্সে টিক দেওয়ার অপশন আসবে
-                'callback': (response) => {
-                    console.log("reCAPTCHA solved.");
-                },
-                'expired-callback': () => {
-                    alert("reCAPTCHA expired. Please solve it again.");
-                }
-            });
-        }
-        initRecaptcha();
+        // --- Auth Toggle (Login <-> Sign Up) ---
+        const toggleLink = document.getElementById('toggle-auth');
+        toggleLink.onclick = () => {
+            const isLogin = document.getElementById('btn-signup').classList.toggle('hidden');
+            document.getElementById('btn-login').classList.toggle('hidden');
+            document.getElementById('auth-title').innerText = isLogin ? "Login to Uber" : "Create Account";
+            toggleLink.innerText = isLogin ? "Don't have an account? Sign Up" : "Already have an account? Login";
+        };
 
-        // ২. OTP পাঠানোর ফাংশন
-        document.getElementById("send-otp-btn").onclick = function() {
-            const phone = document.getElementById("phone-number").value;
-            
-            if (phone.length !== 10) {
-                updateMsg("Please enter a valid 10-digit number!", "red");
-                return;
+        // --- 1. Create User (Sign Up) ---
+        document.getElementById('btn-signup').onclick = () => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            createUserWithEmailAndPassword(auth, email, pass)
+                .then(() => alert("Account Created Successfully!"))
+                .catch(err => alert(err.message));
+        };
+
+        // --- 2. Login User ---
+        document.getElementById('btn-login').onclick = () => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            signInWithEmailAndPassword(auth, email, pass)
+                .catch(err => alert("Login Failed: " + err.message));
+        };
+
+        // --- 3. Auth State Listener (Check if logged in) ---
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('auth-container').classList.add('hidden');
+                document.getElementById('app-section').classList.remove('hidden');
+                document.getElementById('map').style.display = 'block';
+                document.getElementById('user-display').innerText = "Rider: " + user.email;
+                initMap();
+            } else {
+                document.getElementById('auth-container').classList.remove('hidden');
+                document.getElementById('app-section').classList.add('hidden');
+                document.getElementById('map').style.display = 'none';
             }
+        });
 
-            const fullPhoneNumber = "+91" + phone;
-            const appVerifier = window.recaptchaVerifier;
+        // --- 4. Logout ---
+        document.getElementById('btn-logout').onclick = () => signOut(auth);
 
-            signInWithPhoneNumber(auth, fullPhoneNumber, appVerifier)
-                .then((confirmationResult) => {
-                    window.confirmationResult = confirmationResult;
-                    document.getElementById("phone-section").style.display = "none";
-                    document.getElementById("otp-section").style.display = "block";
-                    updateMsg("OTP sent to +91 " + phone, "green");
-                }).catch((error) => {
-                    console.error(error);
-                    updateMsg("Error: " + error.message, "red");
-                    // ভুল হলে ক্যাপচা রিসেট করতে হতে পারে
-                    location.reload(); 
+        // --- 5. Map Initialization ---
+        function initMap() {
+            if (map) return; // Already initialized
+            map = L.map('map').setView([23.8103, 90.4125], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+            navigator.geolocation.watchPosition((pos) => {
+                userLat = pos.coords.latitude;
+                userLng = pos.coords.longitude;
+                if (!userMarker) {
+                    userMarker = L.marker([userLat, userLng]).addTo(map).bindPopup("You are here").openPopup();
+                    map.setView([userLat, userLng]);
+                } else {
+                    userMarker.setLatLng([userLat, userLng]);
+                }
+            }, null, { enableHighAccuracy: true });
+        }
+
+        // --- 6. Ride Request Logic ---
+        document.getElementById('btn-request-ride').onclick = () => {
+            if (!userLat) return alert("Getting your location... please wait.");
+
+            const rideRef = push(ref(db, 'rides/'));
+            currentRideId = rideRef.key;
+
+            set(rideRef, {
+                rider_email: auth.currentUser.email,
+                lat: userLat,
+                lng: userLng,
+                status: "pending",
+                timestamp: Date.now()
+            }).then(() => {
+                document.getElementById('status-box').classList.remove('hidden');
+                document.getElementById('btn-request-ride').innerText = "Request Sent...";
+                document.getElementById('btn-request-ride').disabled = true;
+                document.getElementById('driver-sim').classList.remove('hidden');
+                
+                // Watch for driver acceptance
+                onValue(ref(db, 'rides/' + currentRideId), (snapshot) => {
+                    const data = snapshot.val();
+                    if (data && data.status === "accepted") {
+                        document.getElementById('ride-status').innerText = "Driver Accepted! ✅ Coming to you.";
+                        document.getElementById('status-box').style.background = "#d4edda";
+                    }
                 });
-        };
-
-        // ৩. OTP ভেরিফাই করার ফাংশন
-        document.getElementById("verify-otp-btn").onclick = function() {
-            const code = document.getElementById("otp-input").value;
-
-            window.confirmationResult.confirm(code).then((result) => {
-                const user = result.user;
-                updateMsg("Verification Successful! User ID: " + user.uid, "green");
-                alert("Welcome! Login Successful.");
-                // সফল হলে এখানে অন্য পেজে রিডাইরেক্ট করতে পারেন
-            }).catch((error) => {
-                updateMsg("Invalid OTP. Try again.", "red");
             });
         };
 
-        function updateMsg(text, color) {
-            statusMsg.innerText = text;
-            statusMsg.style.color = color;
-        }
+        // Simulation for testing
+        document.getElementById('driver-sim').onclick = () => {
+            if (currentRideId) {
+                update(ref(db, 'rides/' + currentRideId), { status: "accepted" });
+            }
+        };
+
     </script>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </body>
 </html>
