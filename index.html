@@ -3,78 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ola Uber Clone - Email Login</title>
+    <title>RapidGo - User Portal</title>
     
-    <!-- Leaflet CSS (Map) -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Google Fonts & Font Awesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
-        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-        body { margin: 0; background: #f4f4f4; }
-        
-        /* Map UI */
-        #map { height: 45vh; width: 100%; display: none; }
+        :root { --primary: #FFD700; --dark: #121212; --white: #ffffff; --accent: #FF8C00; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+        body { background-color: #f4f4f4; }
 
-        /* Container UI */
-        .container { padding: 25px; max-width: 450px; margin: auto; background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-top: 20px; }
-        
-        h2 { text-align: center; color: #333; margin-bottom: 20px; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
-        
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 10px; transition: 0.3s; }
-        
-        .btn-primary { background: #ffc107; color: black; } /* Ola/Uber Yellow */
-        .btn-primary:hover { background: #e0a800; }
-        .btn-secondary { background: #f8f9fa; border: 1px solid #ccc; font-size: 14px; }
-        .btn-ride { background: #000; color: #fff; margin-top: 20px; }
-        .btn-logout { background: #ff4d4d; color: white; margin-top: 10px; font-size: 12px; width: auto; padding: 5px 15px; float: right; }
+        /* Auth Styles */
+        .auth-container { 
+            background: var(--dark); height: 100vh; display: flex; 
+            flex-direction: column; justify-content: center; align-items: center; padding: 20px;
+        }
+        .auth-card { 
+            background: var(--white); width: 100%; max-width: 400px; 
+            padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
+        }
+        .auth-card h2 { text-align: center; margin-bottom: 20px; color: var(--dark); }
+        .auth-card input { 
+            width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; 
+            border-radius: 10px; outline: none; 
+        }
+        .btn-auth { 
+            width: 100%; padding: 12px; background: var(--primary); border: none; 
+            border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 15px; 
+        }
+        .toggle-text { text-align: center; margin-top: 15px; font-size: 14px; cursor: pointer; color: #555; }
+        .toggle-text span { color: var(--accent); font-weight: bold; }
 
-        .hidden { display: none; }
-        #status-box { background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px; text-align: center; color: #0d47a1; font-weight: bold; }
+        /* Main App Styles */
+        header { background: var(--dark); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; color: var(--primary); position: sticky; top: 0; z-index: 1000; }
+        .user-profile { width: 40px; height: 40px; background: var(--primary); border-radius: 50%; display: flex; justify-content: center; align-items: center; color: var(--dark); cursor: pointer; }
         
-        .toggle-link { text-align: center; margin-top: 15px; font-size: 14px; color: #007bff; cursor: pointer; }
+        .hero { background: var(--dark); padding: 40px 20px; border-bottom-left-radius: 40px; border-bottom-right-radius: 40px; color: white; text-align: center; }
+        
+        .booking-card { background: white; margin: -50px 20px 20px; padding: 25px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .booking-card input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #eee; border-radius: 10px; background: #fafafa; }
+        
+        .btn-book { width: 100%; padding: 15px; background: var(--primary); border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; box-shadow: 0 4px 10px rgba(255, 215, 0, 0.3); }
+
+        /* Car Animation */
+        .anim-box { position: relative; height: 80px; overflow: hidden; background: #eee; margin: 20px; border-radius: 10px; }
+        .car { position: absolute; bottom: 10px; left: 10%; font-size: 35px; animation: drive 3s linear infinite; }
+        @keyframes drive { 0% { left: -10%; } 100% { left: 110%; } }
+
+        footer { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 12px; border-top: 1px solid #eee; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <!-- Map View -->
-    <div id="map"></div>
-
-    <div class="container" id="auth-container">
-        <h2 id="auth-title">Login to Uber</h2>
-        
-        <input type="email" id="email" placeholder="Email Address">
-        <input type="password" id="password" placeholder="Password (min 6 chars)">
-        
-        <button class="btn-primary" id="btn-login">Login</button>
-        <button class="btn-secondary hidden" id="btn-signup">Create Account</button>
-        
-        <p class="toggle-link" id="toggle-auth">Don't have an account? Sign Up</p>
+    <!-- 1. Registration Screen -->
+    <div id="register-screen" class="auth-container">
+        <div class="auth-card">
+            <h2>Create Account</h2>
+            <input type="text" id="reg-name" placeholder="Full Name">
+            <input type="tel" id="reg-phone" placeholder="Phone Number">
+            <input type="email" id="reg-email" placeholder="Email Address">
+            <input type="password" id="reg-password" placeholder="Password (min 6 chars)">
+            <button class="btn-auth" id="btn-register-submit">REGISTER</button>
+            <p class="toggle-text" onclick="showLogin()">Already have an account? <span>Login</span></p>
+        </div>
     </div>
 
-    <!-- Main App Section -->
-    <div class="container hidden" id="app-section">
-        <button class="btn-logout" id="btn-logout">Logout</button>
-        <h3 id="user-display">Welcome Rider!</h3>
-        <p style="font-size: 14px; color: #666;">Confirm your location on the map and request a ride.</p>
-        
-        <button class="btn-ride" id="btn-request-ride">Request Ride Now</button>
-        
-        <div id="status-box" class="hidden">
-            <span id="ride-status">Searching for nearby drivers...</span>
+    <!-- 2. Login Screen -->
+    <div id="login-screen" class="auth-container hidden">
+        <div class="auth-card">
+            <h2>Login</h2>
+            <input type="email" id="login-email" placeholder="Email Address">
+            <input type="password" id="login-password" placeholder="Password">
+            <button class="btn-auth" id="btn-login-submit">LOGIN</button>
+            <p class="toggle-text" onclick="showRegister()">Don't have an account? <span>Register</span></p>
+        </div>
+    </div>
+
+    <!-- 3. Main User App -->
+    <div id="main-app" class="hidden">
+        <header>
+            <div style="font-size: 22px; font-weight: bold;">RapidGo</div>
+            <div class="user-profile" id="logout-btn"><i class="fas fa-sign-out-alt"></i></div>
+        </header>
+
+        <section class="hero">
+            <h2 id="welcome-user">Hello!</h2>
+            <p>Where would you like to go today?</p>
+        </section>
+
+        <div class="booking-card">
+            <input type="text" id="pickup" placeholder="Pickup Location">
+            <input type="text" id="dropoff" placeholder="Destination Location">
+            <button class="btn-book" id="btn-book-now">BOOK NOW</button>
         </div>
 
-        <!-- Simulation Button -->
-        <button id="driver-sim" class="btn-secondary hidden" style="margin-top:20px; background: #d4edda;">Simulate: Driver Found</button>
+        <div class="anim-box">
+            <div class="car"><i class="fas fa-motorcycle" style="color: var(--accent);"></i></div>
+        </div>
+
+        <footer>
+            <div style="color: var(--accent);"><i class="fas fa-home"></i><p style="font-size:10px;">Home</p></div>
+            <div style="color: #999;"><i class="fas fa-history"></i><p style="font-size:10px;">My Rides</p></div>
+            <div style="color: #999;"><i class="fas fa-wallet"></i><p style="font-size:10px;">Wallet</p></div>
+        </footer>
     </div>
 
-    <!-- Firebase Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getDatabase, ref, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, set, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // Firebase Configuration (Using your provided config)
+        // Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyAFUAATQoR0Kidzm9665tILTMNArFgKO9k",
             authDomain: "school-websit-9c152.firebaseapp.com",
@@ -82,119 +123,99 @@
             projectId: "school-websit-9c152",
             storageBucket: "school-websit-9c152.firebasestorage.app",
             messagingSenderId: "591107596339",
-            appId: "1:591107596339:web:7ea49a657abd08f1f20346",
-            measurementId: "G-K7R4D9Q2L4"
+            appId: "1:591107596339:web:7ea49a657abd08f1f20346"
         };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getDatabase(app);
 
-        let map, userMarker, userLat, userLng;
-        let currentRideId = null;
-
-        // --- Auth Toggle (Login <-> Sign Up) ---
-        const toggleLink = document.getElementById('toggle-auth');
-        toggleLink.onclick = () => {
-            const isLogin = document.getElementById('btn-signup').classList.toggle('hidden');
-            document.getElementById('btn-login').classList.toggle('hidden');
-            document.getElementById('auth-title').innerText = isLogin ? "Login to Uber" : "Create Account";
-            toggleLink.innerText = isLogin ? "Don't have an account? Sign Up" : "Already have an account? Login";
+        // --- Screen Switching Logic ---
+        window.showLogin = () => {
+            document.getElementById('register-screen').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+        };
+        window.showRegister = () => {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('register-screen').classList.remove('hidden');
         };
 
-        // --- 1. Create User (Sign Up) ---
-        document.getElementById('btn-signup').onclick = () => {
-            const email = document.getElementById('email').value;
-            const pass = document.getElementById('password').value;
-            createUserWithEmailAndPassword(auth, email, pass)
-                .then(() => alert("Account Created Successfully!"))
-                .catch(err => alert(err.message));
+        // --- 1. Registration Logic ---
+        document.getElementById('btn-register-submit').onclick = async () => {
+            const name = document.getElementById('reg-name').value;
+            const phone = document.getElementById('reg-phone').value;
+            const email = document.getElementById('reg-email').value;
+            const pass = document.getElementById('reg-password').value;
+
+            if(!name || !phone || !email || !pass) return alert("Please fill all fields");
+
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+                const userId = userCredential.user.uid;
+
+                // Save extra info in Database
+                await set(ref(db, 'users/' + userId), {
+                    name: name,
+                    phone: phone,
+                    email: email,
+                    role: 'rider'
+                });
+                alert("Account Created Successfully!");
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
         };
 
-        // --- 2. Login User ---
-        document.getElementById('btn-login').onclick = () => {
-            const email = document.getElementById('email').value;
-            const pass = document.getElementById('password').value;
-            signInWithEmailAndPassword(auth, email, pass)
-                .catch(err => alert("Login Failed: " + err.message));
+        // --- 2. Login Logic ---
+        document.getElementById('btn-login-submit').onclick = async () => {
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
+
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+            } catch (err) {
+                alert("Login Failed: " + err.message);
+            }
         };
 
-        // --- 3. Auth State Listener (Check if logged in) ---
+        // --- 3. Auth State (Keep User Logged In) ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                document.getElementById('auth-container').classList.add('hidden');
-                document.getElementById('app-section').classList.remove('hidden');
-                document.getElementById('map').style.display = 'block';
-                document.getElementById('user-display').innerText = "Rider: " + user.email;
-                initMap();
+                document.getElementById('register-screen').classList.add('hidden');
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                document.getElementById('welcome-user').innerText = "Hello, Rider!";
             } else {
-                document.getElementById('auth-container').classList.remove('hidden');
-                document.getElementById('app-section').classList.add('hidden');
-                document.getElementById('map').style.display = 'none';
+                document.getElementById('main-app').classList.add('hidden');
+                document.getElementById('login-screen').classList.remove('hidden');
             }
         });
 
         // --- 4. Logout ---
-        document.getElementById('btn-logout').onclick = () => signOut(auth);
+        document.getElementById('logout-btn').onclick = () => signOut(auth);
 
-        // --- 5. Map Initialization ---
-        function initMap() {
-            if (map) return; // Already initialized
-            map = L.map('map').setView([23.8103, 90.4125], 15);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        // --- 5. Booking Ride ---
+        document.getElementById('btn-book-now').onclick = () => {
+            const pickup = document.getElementById('pickup').value;
+            const dropoff = document.getElementById('dropoff').value;
 
-            navigator.geolocation.watchPosition((pos) => {
-                userLat = pos.coords.latitude;
-                userLng = pos.coords.longitude;
-                if (!userMarker) {
-                    userMarker = L.marker([userLat, userLng]).addTo(map).bindPopup("You are here").openPopup();
-                    map.setView([userLat, userLng]);
-                } else {
-                    userMarker.setLatLng([userLat, userLng]);
-                }
-            }, null, { enableHighAccuracy: true });
-        }
-
-        // --- 6. Ride Request Logic ---
-        document.getElementById('btn-request-ride').onclick = () => {
-            if (!userLat) return alert("Getting your location... please wait.");
-
-            const rideRef = push(ref(db, 'rides/'));
-            currentRideId = rideRef.key;
-
-            set(rideRef, {
-                rider_email: auth.currentUser.email,
-                lat: userLat,
-                lng: userLng,
-                status: "pending",
-                timestamp: Date.now()
-            }).then(() => {
-                document.getElementById('status-box').classList.remove('hidden');
-                document.getElementById('btn-request-ride').innerText = "Request Sent...";
-                document.getElementById('btn-request-ride').disabled = true;
-                document.getElementById('driver-sim').classList.remove('hidden');
-                
-                // Watch for driver acceptance
-                onValue(ref(db, 'rides/' + currentRideId), (snapshot) => {
-                    const data = snapshot.val();
-                    if (data && data.status === "accepted") {
-                        document.getElementById('ride-status').innerText = "Driver Accepted! ✅ Coming to you.";
-                        document.getElementById('status-box').style.background = "#d4edda";
-                    }
+            if(pickup && dropoff) {
+                const rideId = push(ref(db, 'rides')).key;
+                set(ref(db, 'rides/' + rideId), {
+                    rider_email: auth.currentUser.email,
+                    pickup: pickup,
+                    dropoff: dropoff,
+                    status: 'pending',
+                    timestamp: Date.now()
+                }).then(() => {
+                    alert("Finding Nearby Captains...");
+                    document.getElementById('pickup').value = "";
+                    document.getElementById('dropoff').value = "";
                 });
-            });
-        };
-
-        // Simulation for testing
-        document.getElementById('driver-sim').onclick = () => {
-            if (currentRideId) {
-                update(ref(db, 'rides/' + currentRideId), { status: "accepted" });
+            } else {
+                alert("Please enter locations");
             }
         };
-
     </script>
-
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </body>
 </html>
